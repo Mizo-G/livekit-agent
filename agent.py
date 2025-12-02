@@ -2,10 +2,12 @@ from dotenv import load_dotenv
 
 from livekit import agents, rtc
 from livekit.agents import AgentServer,AgentSession, Agent, room_io
-from livekit.plugins import noise_cancellation, silero
+from livekit.plugins import noise_cancellation, silero, google
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit.agents.llm import function_tool
 from livekit.rtc.rpc import RpcInvocationData
+
+import os
 import json
 
 import logging
@@ -64,12 +66,19 @@ server = AgentServer()
 
 @server.rtc_session()
 async def my_agent(ctx: agents.JobContext):
+   # session = AgentSession(
+   #     stt="assemblyai/universal-streaming:en",
+   #     llm="openai/gpt-4.1-mini",
+   #     tts="cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+   #     vad=silero.VAD.load(),
+   #     turn_detection=MultilingualModel(),
+   # )
     session = AgentSession(
-        stt="assemblyai/universal-streaming:en",
-        llm="openai/gpt-4.1-mini",
-        tts="cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-        vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
+        llm=google.beta.realtime.RealtimeModel(
+            voice="Leda",
+            api_key=os.getenv("GEMINI_API_KEY"),
+            model="gemini-2.5-flash-native-audio-preview-09-2025",
+        )
     )
 
     await ctx.connect()
