@@ -5,6 +5,8 @@ from livekit.agents import AgentServer,AgentSession, Agent, room_io
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit.agents.llm import function_tool
+from livekit.rtc.rpc import RpcInvocationData
+import json
 
 import logging
 logger = logging.getLogger("main")
@@ -75,10 +77,19 @@ async def my_agent(ctx: agents.JobContext):
     p = await ctx.wait_for_participant()
     print(f"{p.identity} joined")
 
-    rpc_context = {
-        "room": ctx.room,
-        "client_identity": p.identity 
-    }
+
+    #register rpc to call from the client
+    @ctx.room.local_participant.register_rpc_method("dom_elements")
+    async def handle_dom_elements_rpc(data: RpcInvocationData):
+        try:
+            dom_elements = json.loads(data.payload)
+            print(f"Received DOM elements from frontend: {dom_elements}")
+
+            return json.dumps({"success": True, "message": "DOM elements received and stored"})
+        except Exception as e:
+            print(f"Error handling DOM elements: {e}")
+            return json.dumps({"success": False, "message": str(e)})
+
 
     assistant = Assistant(room=ctx.room, client_identity=p.identity)
 
