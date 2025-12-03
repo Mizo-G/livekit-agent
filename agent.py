@@ -24,28 +24,34 @@ class Assistant(Agent):
         super().__init__(
             instructions="""You are a helpful voice AI assistant.
             You eagerly assist users with their questions by providing information from your extensive knowledge.
-            
+
             IMPORTANT: You have a special capability to call RPC functions on the client. 
-            When you want to trigger an action on the client (like showing a greeting), 
-            use the send_greeting() function.
-            
-            Examples of when to use send_greeting():
-            - User asks you to send a greeting to the client
-            - User wants to trigger a UI action
-            - User asks you to demonstrate RPC functionality
-            
+            You can interact with the frontend through RPC calls. 
+            Available tools:
+
+            1) send_greeting(message)
+               - Sends a greeting message to the client.
+
+            2) click_button(js_id: str = "1")
+               - Triggers a click on a DOM element with data-js-id="{js_id}".
+               - If no js_id is provided, default to "1".
+
+            Keep your decisions minimal and avoid extra explanation unless requested.
+            Use these tools whenever the user asks to interact with the UI, simulate a click, press a button, or perform an action tied to a specific element.
+            Always provide the required arguments; if js_id is not specified, choose "1".
+
             Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
             You are curious, friendly, and have a sense of humor.""",
         )
-    
+
     @function_tool
     async def send_greeting(self, message: str = "hello client from agent!"):
         try:
             method = "client.greet"
             logger.info(f"Attempting to send RPC '{method}' with message: {message}")
-            
+
             logger.info(f"Sending RPC to client: {self._client_identity}!")
-            
+
             room = self._room
             result = await room.local_participant.perform_rpc(
                 destination_identity='client',
@@ -60,19 +66,42 @@ class Assistant(Agent):
             logger.error(f"failed to send greeting with message: {message}")
             return f"Failed to send greeting. error: {str(e)}";
 
+    @function_tool
+    async def click_button(self, js_id: str = "1"):
+        try:
+            method = "client.click_button"
+            logger.info(f"Attempting RPC '{method}' with js_id={js_id}")
+
+            room = self._room
+
+            # Payload can be a simple string OR a JSON object (recommended)
+            payload = json.dumps({"jsId": js_id})
+
+            result = await room.local_participant.perform_rpc(
+                destination_identity="client",
+                method=method,
+                payload=payload
+            )
+
+            logger.info(f"RPC '{method}' success. Frontend result: {result}")
+            return f"Triggered button click for js-id='{js_id}'"
+
+        except Exception as e:
+            logger.error(f"RPC '{method}' failed: {e}")
+            return f"Failed to click button '{js_id}'. Error: {str(e)}"
 
 
 server = AgentServer()
 
 @server.rtc_session()
 async def my_agent(ctx: agents.JobContext):
-   # session = AgentSession(
-   #     stt="assemblyai/universal-streaming:en",
-   #     llm="openai/gpt-4.1-mini",
-   #     tts="cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-   #     vad=silero.VAD.load(),
-   #     turn_detection=MultilingualModel(),
-   # )
+    # session = AgentSession(
+    #     stt="assemblyai/universal-streaming:en",
+    #     llm="openai/gpt-4.1-mini",
+    #     tts="cartesia/sonic-3:9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+    #     vad=silero.VAD.load(),
+    #     turn_detection=MultilingualModel(),
+    # )
     session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
             voice="Leda",
